@@ -816,7 +816,13 @@ function loadAll(){
     }
     // Apply market cache from Firebase — overrides localStorage, loads at same time as stocks
     var mkt=_mktSnap&&_mktSnap.val();
-    if(mkt)_mktData=mkt;
+    // Merge: Firebase values win per symbol, but local values fill any gaps
+    if(mkt&&typeof mkt==='object'){
+      var mm={};
+      if(_mktData&&typeof _mktData==='object')Object.keys(_mktData).forEach(function(k){mm[k]=_mktData[k];});
+      Object.keys(mkt).forEach(function(k){mm[k]=mkt[k];});
+      _mktData=mm;
+    }
     _setupRealtimeSync(ref);
     initApp();
   }
@@ -1583,9 +1589,19 @@ function fetchMarketIndices(){
     }).catch(function(){});
   })).then(function(){
     if(Object.keys(results).length>0){
-      _mktData=results;
-      try{localStorage.setItem('_mktData',JSON.stringify(results));localStorage.setItem('_mktPillsHTML',_mktPillsHTML());}catch(e){}
-      try{firebase.database().ref('mktCache').set(results);}catch(e){}
+      // Merge with last known values so symbols that failed this round keep showing
+      var merged={};
+      if(_mktData&&typeof _mktData==='object')Object.keys(_mktData).forEach(function(k){merged[k]=_mktData[k];});
+      Object.keys(results).forEach(function(k){merged[k]=results[k];});
+      _mktData=merged;
+      try{localStorage.setItem('_mktData',JSON.stringify(merged));localStorage.setItem('_mktPillsHTML',_mktPillsHTML());}catch(e){}
+      // Merge into the shared cache instead of overwriting it, so a partial fetch
+      // (some proxies failed) never wipes other symbols' last good values.
+      try{firebase.database().ref('mktCache').transaction(function(cur){
+        cur=(cur&&typeof cur==='object')?cur:{};
+        Object.keys(results).forEach(function(k){cur[k]=results[k];});
+        return cur;
+      });}catch(e){}
       _fillMktPills();
     }
   });
