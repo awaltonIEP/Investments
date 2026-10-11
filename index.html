@@ -2039,7 +2039,7 @@ function _buildChartDataFromSeries(series,cutoffDate){
   series.forEach(function(hs){if(hs.pts.length>2||hs.h.manualPrice)realSyms[hs.h.symbol]=true;});
   return{dates:validDates,portValues:portValues,profValues:profValues,realSyms:realSyms};
 }
-var _CHART_CACHE_KEY='folio_chart_v19';
+var _CHART_CACHE_KEY='folio_chart_v20';
 function _chartCacheGet(rangeKey){
   try{var s=localStorage.getItem(_CHART_CACHE_KEY);if(!s)return null;
     var obj=JSON.parse(s);var entry=obj[rangeKey];if(!entry)return null;
