@@ -2039,7 +2039,7 @@ function _buildChartDataFromSeries(series,cutoffDate){
   series.forEach(function(hs){if(hs.pts.length>2||hs.h.manualPrice)realSyms[hs.h.symbol]=true;});
   return{dates:validDates,portValues:portValues,profValues:profValues,realSyms:realSyms};
 }
-var _CHART_CACHE_KEY='folio_chart_v18';
+var _CHART_CACHE_KEY='folio_chart_v19';
 function _chartCacheGet(rangeKey){
   try{var s=localStorage.getItem(_CHART_CACHE_KEY);if(!s)return null;
     var obj=JSON.parse(s);var entry=obj[rangeKey];if(!entry)return null;
@@ -2059,12 +2059,16 @@ function _chartCacheSet(rangeKey,data,overlays){
 function _chartCacheClear(){try{localStorage.removeItem(_CHART_CACHE_KEY);}catch(e){}}
 // Per-symbol persistent series cache — robust to individual fetch failures
 // Each (symbol,range,interval) cached independently, so one bad fetch doesn't poison the whole chart
-var _SERIES_CACHE_PREFIX='sseries_v1_';
+var _SERIES_CACHE_PREFIX='sseries_v2_';
 function _seriesKey(sym,rng,iv){return _SERIES_CACHE_PREFIX+sym+'_'+rng+'_'+iv;}
 function _seriesCacheGet(sym,rng,iv){try{var s=localStorage.getItem(_seriesKey(sym,rng,iv));return s?JSON.parse(s):null;}catch(e){return null;}}
 function _seriesCacheSet(sym,rng,iv,pts){try{localStorage.setItem(_seriesKey(sym,rng,iv),JSON.stringify({ts:Date.now(),pts:pts}));}catch(e){}}
 function _seriesCacheIsFresh(entry){if(!entry||!entry.ts)return false;return new Date(entry.ts).toISOString().slice(0,10)===new Date().toISOString().slice(0,10);}
 function _chartCachePurgeOldKeys(){
+  // Drop caches from older versions (e.g. charts saved while price fetches were failing)
+  try{Object.keys(localStorage).forEach(function(k){
+    if((/^folio_chart_v\d+$/.test(k)&&k!==_CHART_CACHE_KEY)||(/^sseries_v\d+_/.test(k)&&k.indexOf(_SERIES_CACHE_PREFIX)!==0))localStorage.removeItem(k);
+  });}catch(e){}
   // Remove any cache entries stored under the old format (e.g. '1Y') which had no account isolation
   // New keys always contain '::' e.g. '1Y::USD::AAPL,GOOG,...'
   try{var s=localStorage.getItem(_CHART_CACHE_KEY);if(!s)return;
