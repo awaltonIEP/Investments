@@ -4070,7 +4070,7 @@ async function fetchAllPrices(){
       symMap[t].push(h);
     });
   });
-  var syms=Object.keys(symMap);
+  var syms=Object.keys(symMap),quotes={};
   if(!syms.length)return;
   setPriceFetchStatus('Updating prices…');
   // v8 chart API — concurrent batches of 5, 300ms between batches
@@ -4085,12 +4085,20 @@ async function fetchAllPrices(){
           var pct=meta.regularMarketChangePercent!=null
             ?meta.regularMarketChangePercent
             :(meta.chartPreviousClose>0?((meta.regularMarketPrice-meta.chartPreviousClose)/meta.chartPreviousClose*100):0);
-          symMap[sym].forEach(function(h){h.currentPrice=meta.regularMarketPrice;h.dayChangePct=pct;});
+          quotes[sym]={price:meta.regularMarketPrice,pct:pct};
         }
       }catch(e){}
     }));
     if(j+CONC<syms.length)await new Promise(function(r){setTimeout(r,300);});
   }
+  // Apply to the CURRENT appData — a realtime sync may have replaced it while we were fetching
+  appData.accounts.forEach(function(acc){
+    acc.holdings.forEach(function(h){
+      if(h.manualPrice)return;
+      var q=quotes[yahooTicker(h)];
+      if(q){h.currentPrice=q.price;h.dayChangePct=q.pct;}
+    });
+  });
   _lastSync=new Date();
   render();
   saveAll();
