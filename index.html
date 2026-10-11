@@ -2400,7 +2400,7 @@ async function initPortfolioChart(holdings,selRange){
   }
   var promises=fetchH.map(function(h){
     var fx=_chartFx(h);
-    var sym=h.symbol.replace(/\//g,'-');
+    var sym=yahooTicker(h);
     var cached=_seriesCacheGet(sym,cfg.range,cfg.interval);
     var hasCached=cached&&cached.pts&&cached.pts.length>2;
     if(hasCached){
@@ -2993,6 +2993,13 @@ function onSymbolKey(e){
 }
 // normalize symbol for Yahoo Finance queries (crypto uses BTC-USD not BTC/USD)
 function yahooSym(sym){return (sym||'').replace(/\//g,'-');}
+// Yahoo ticker for a holding: CAD holdings with a bare symbol (e.g. RY, GIB.A) trade on the TSX,
+// and the bare symbol would hit the US listing (USD price, or a different company entirely).
+function yahooTicker(h){
+  var s=yahooSym(h.symbol);
+  if((h.currency||'').toUpperCase()==='CAD'&&!/\.(TO|V|NE|CN)$/i.test(s))s=s.replace(/\./g,'-')+'.TO';
+  return s;
+}
 function yahooFetch(url){
   var proxies=[YAHOO_RELAY+encodeURIComponent(url),'https://corsproxy.io/?'+encodeURIComponent(url),'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)];
   return new Promise(function(resolve,reject){
@@ -4058,8 +4065,9 @@ async function fetchAllPrices(){
   appData.accounts.forEach(function(acc){
     acc.holdings.forEach(function(h){
       if(h.manualPrice)return;
-      if(!symMap[h.symbol])symMap[h.symbol]=[];
-      symMap[h.symbol].push(h);
+      var t=yahooTicker(h);
+      if(!symMap[t])symMap[t]=[];
+      symMap[t].push(h);
     });
   });
   var syms=Object.keys(symMap);
@@ -4070,7 +4078,7 @@ async function fetchAllPrices(){
   for(var j=0;j<syms.length;j+=CONC){
     await Promise.all(syms.slice(j,j+CONC).map(async function(sym){
       try{
-        var url='https://query2.finance.yahoo.com/v8/finance/chart/'+encodeURIComponent(yahooSym(sym))+'?interval=1d&range=1d';
+        var url='https://query2.finance.yahoo.com/v8/finance/chart/'+encodeURIComponent(sym)+'?interval=1d&range=1d';
         var d=await yahooFetch(url);
         var meta=d&&d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta;
         if(meta&&meta.regularMarketPrice!=null){
