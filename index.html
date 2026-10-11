@@ -1447,7 +1447,7 @@ function statsHTML(tv,tc,tp,tpp,td,tfx,tsg,accs,tdiv){
     +'<span class="nav-sync-time" id="syncTimeLandscape">'+t+'</span>'
     +ccyBtns+'</div>';
   var inner='<div class="stats-grid">'+
-    sCard('Total Mkt Value',fmtC(tv),'','var(--text)')+
+    sCard('Total Mkt Value (incl. Cash)',fmtC(tv),'','var(--text)')+
     sCard('Stock Mkt Value',fmtC(invMV),'','var(--text)')+
     (accs?cashStatCard(accs):'')+
     sCard('Book Value',fmtC(tc-cashVal),'','var(--text)')+
@@ -1754,7 +1754,7 @@ function holdingsHTML(holdings,isRollup,acc,accsForCash,heroHtml){
   var portDPct=invDBase>0?(invDPnL/invDBase*100):0;
   var portNPnLPct=totTC>0?(invNPnL/totTC*100):0;
   var portRow=hasCash?'<div class="total-row'+rc+'" style="background:var(--bg);border-top:2px solid var(--border)">'+
-    '<div class="cell" style="text-align:left">Total Mkt Value</div>'+b+
+    '<div class="cell" style="text-align:left">Total Mkt Value (incl. Cash)</div>'+b+
     b+(isRollup?b:'')+b+b+b+
     '<div class="cell">'+fmtC(totTC)+'</div>'+b+
     '<div class="cell">'+fmtC(totMV)+'</div>'+
