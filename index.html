@@ -2076,11 +2076,13 @@ var _portRangeCfg={'1W':{range:'5d',interval:'1d'},'1M':{range:'1mo',interval:'1
 var _PMONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDate(dateStr){if(!dateStr)return'';var d=new Date(dateStr+'T12:00:00');return d.getDate()+_PMONS[d.getMonth()]+"'"+String(d.getFullYear()).slice(2);}
 
+// Own Cloudflare Worker relay (see cloudflare-worker/); public proxies kept as fallbacks.
+var YAHOO_RELAY='https://yahoo-relay.awaltoniep.workers.dev/?url=';
 // Race all proxies concurrently — resolves on first success. 12s timeout per proxy.
 function portFetch(url){
   return new Promise(function(resolve,reject){
     var done=false,failed=0;
-    var proxies=[url,'https://corsproxy.io/?'+encodeURIComponent(url),'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)];
+    var proxies=[YAHOO_RELAY+encodeURIComponent(url),'https://corsproxy.io/?'+encodeURIComponent(url),'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)];
     var total=proxies.length;
     proxies.forEach(function(p){
       var ctrl=new AbortController();
@@ -2986,7 +2988,7 @@ function onSymbolKey(e){
 // normalize symbol for Yahoo Finance queries (crypto uses BTC-USD not BTC/USD)
 function yahooSym(sym){return (sym||'').replace(/\//g,'-');}
 function yahooFetch(url){
-  var proxies=['https://corsproxy.io/?'+encodeURIComponent(url),'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)];
+  var proxies=[YAHOO_RELAY+encodeURIComponent(url),'https://corsproxy.io/?'+encodeURIComponent(url),'https://api.allorigins.win/raw?url='+encodeURIComponent(url),'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(url)];
   return new Promise(function(resolve,reject){
     var done=false,failed=0;
     proxies.forEach(function(p){
