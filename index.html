@@ -801,6 +801,7 @@ function loadAll(){
     var val=_appSnap&&_appSnap.val();
     if(val){
       appData=val;
+      if(val._cadUsdRate>0)_cadUsdRate=val._cadUsdRate; // last known live rate, until fetchCadRate refreshes it
       appData.accounts.forEach(function(a){
         if(!a.cash){a.cash=[];}
         else if(!Array.isArray(a.cash)){
@@ -2971,7 +2972,13 @@ function getFxFactor(h){
 }
 function setCurrency(c){_portfolioCurrency=c;_portCache={};_portHoldingSeries=[];render();}
 async function fetchCadRate(){
-  try{var url='https://query1.finance.yahoo.com/v8/finance/chart/CADUSD%3DX?interval=1d&range=1d';var d=await yahooFetch(url);var meta=d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta;if(meta&&meta.regularMarketPrice)_cadUsdRate=meta.regularMarketPrice;}catch(e){}
+  try{var url='https://query1.finance.yahoo.com/v8/finance/chart/CADUSD%3DX?interval=1d&range=1d';var d=await yahooFetch(url);var meta=d.chart&&d.chart.result&&d.chart.result[0]&&d.chart.result[0].meta;
+    if(meta&&meta.regularMarketPrice){
+      var changed=Math.abs(meta.regularMarketPrice-_cadUsdRate)>1e-6;
+      _cadUsdRate=meta.regularMarketPrice;
+      appData._cadUsdRate=_cadUsdRate; // persisted with next save so the first render on any device uses a real rate
+      if(changed&&appData.accounts&&appData.accounts.length)render();
+    }}catch(e){}
 }
 function closeSd(){var d=document.getElementById('symDd');if(d){d.classList.remove('open');d.innerHTML='';}  _symItems=[];_symIdx=-1;}
 function onSymbolInput(){
