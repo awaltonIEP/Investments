@@ -2285,7 +2285,7 @@ async function initPortfolioChart(holdings,selRange){
   if(lsData){
     _portCache[cacheKey]=lsData;
     _restoreSeries(lsData);
-    if(_chartCacheIsToday(lsCacheKey)){
+    if(_chartCacheIsToday(lsCacheKey)&&lsData.complete){
       _ensureOverlays(function(){renderCharts(lsData);});
       return; // skip all holding fetches — chart data is fresh
     }
@@ -2429,6 +2429,8 @@ async function initPortfolioChart(holdings,selRange){
     if(msg2){msg2.style.display='block';msg2.textContent='No data available';}
     return;
   }
+  // Complete only if every fetched holding got a real series — an incomplete chart must not be trusted as "today's" cache
+  finalData.complete=fetchH.every(function(h){return finalData.realSyms[h.symbol];});
   _portCache[cacheKey]=finalData;
   _portSeriesHoldingsKey=holdingsKey;
   _portHoldingSeries=holdingSeries;
