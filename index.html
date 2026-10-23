@@ -4061,7 +4061,7 @@ function anim(container){}
 
 // ---- REFRESH ----
 var _lastSync=null;
-function fmtSyncTime(d){var h=d.getHours().toString().padStart(2,'0');var m=d.getMinutes().toString().padStart(2,'0');return h+':'+m;}
+function fmtSyncTime(d){var mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];var h=d.getHours(),ap=h<12?'am':'pm';h=h%12||12;var m=d.getMinutes().toString().padStart(2,'0');return d.getDate()+mon+"'"+String(d.getFullYear()).slice(-2)+' '+h+'.'+m+ap;}
 function _setSyncAll(t){['syncTime','syncTimeMobile','syncTimeLandscape'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=t;});}
 function updateSyncDisplay(){if(_lastSync)_setSyncAll(fmtSyncTime(_lastSync));}
 function setPriceFetchStatus(msg){
