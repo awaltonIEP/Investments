@@ -802,6 +802,7 @@ function loadAll(){
     if(val){
       appData=val;
       if(val._cadUsdRate>0)_cadUsdRate=val._cadUsdRate; // last known live rate, until fetchCadRate refreshes it
+      if(val._pricesAt>0)_lastSync=new Date(val._pricesAt); // time of last successful price update
       appData.accounts.forEach(function(a){
         if(!a.cash){a.cash=[];}
         else if(!Array.isArray(a.cash)){
@@ -4106,7 +4107,10 @@ async function fetchAllPrices(){
       if(q){h.currentPrice=q.price;h.dayChangePct=q.pct;}
     });
   });
+  // Only stamp the time if prices actually came back
+  if(!Object.keys(quotes).length){setPriceFetchStatus();return;}
   _lastSync=new Date();
+  appData._pricesAt=_lastSync.getTime();
   render();
   saveAll();
   updateSyncDisplay();
@@ -4242,7 +4246,9 @@ function _setupRealtimeSync(ref){
     var remoteSavedAt=val._savedAt||0;
     if(remoteSavedAt<=_lastSaveTime)return;
     appData=val;
+    if(val._pricesAt>0)_lastSync=new Date(val._pricesAt);
     render();
+    updateSyncDisplay();
   });
 }
 firebase.auth().onAuthStateChanged(function(user){
@@ -4261,7 +4267,6 @@ function _updateNavH(){
 }
 function initApp(){
   _chartCachePurgeOldKeys();
-  _lastSync=new Date();
   renderTabBar();
   switchTab('overview');
   fetchCadRate();fetchAllPrices();fetchMarketIndices();
