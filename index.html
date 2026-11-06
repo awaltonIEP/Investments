@@ -99,6 +99,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
 .port-chart-card{grid-column:2;grid-row:1}
 .chart-card{grid-column:1;grid-row:2}
 .perf-card{grid-column:2;grid-row:2}
+.endmkt-card{grid-column:1 / -1;grid-row:3;background:var(--card);border-radius:var(--radius);padding:14px 18px 16px;box-shadow:var(--shadow);border:1px solid var(--border-light)}
+.endmkt-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
+.endmkt-sub{font-size:10.5px;color:var(--text2)}
+.endmkt-grid{display:grid;grid-template-columns:minmax(260px,1fr) minmax(280px,1fr);gap:20px;align-items:start}
+@media(max-width:900px){.endmkt-grid{grid-template-columns:1fr}}
+.endmkt-wrap{position:relative}
+.endmkt-wrap canvas{display:block;width:100%}
+.endmkt-tip{position:absolute;background:rgba(29,29,31,0.94);color:#fff;font-size:11.5px;padding:8px 10px;border-radius:8px;pointer-events:none;opacity:0;transition:opacity .12s;z-index:20;min-width:180px;max-width:280px;top:0;left:0}
+.endmkt-tip-h{display:flex;justify-content:space-between;gap:12px;font-weight:700;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.2)}
+.endmkt-tip-r{display:flex;justify-content:space-between;gap:12px;line-height:1.55}
+.endmkt-tip-r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.endmkt-tip-r span:last-child{font-variant-numeric:tabular-nums}
+.endmkt-legend{display:flex;flex-direction:column;gap:3px;margin-top:8px}
+.endmkt-list{max-height:340px;overflow-y:auto;border-top:1px solid var(--border-light)}
+.endmkt-row{display:grid;grid-template-columns:1fr 58px 150px;gap:8px;align-items:center;padding:3px 2px;border-bottom:1px solid var(--border-light);font-size:11.5px}
+.endmkt-row .sym{font-weight:600}
+.endmkt-row .nm{color:var(--text2);font-size:10.5px;margin-left:5px}
+.endmkt-row .pc{text-align:right;color:var(--text2);font-variant-numeric:tabular-nums}
+.endmkt-row input{width:100%;font-size:11.5px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit}
+.endmkt-row input:placeholder-shown{border-style:dashed}
 .port-chart-card{background:var(--card);border-radius:var(--radius);padding:14px 18px 12px;box-shadow:var(--shadow);border:1px solid var(--border-light)}
 .profit-chart-card{background:var(--card);border-radius:var(--radius);padding:14px 18px 12px;box-shadow:var(--shadow);border:1px solid var(--border-light)}
 .port-chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -1276,9 +1296,9 @@ function renderSummary(el){
   var tp=tv-tc+tdiv,tpp=tic>0?(tp/tic*100):0,tsg=tp-tfx-tdiv;
   var allH=accs.reduce(function(arr,a){return arr.concat(a.holdings.map(function(h){return Object.assign({},h,{accountName:a.name,accountId:a.id});}));},[]);
   var mergedH=mergeHoldingsBySymbol(allH);
-  el.innerHTML=statsHTML(tv,tc,tp,tpp,td,tfx,tsg,accs,tdiv)+holdingsHTML(mergedH,true,null,accs,heroHTML('','All Stocks'))+'<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(mergedH)+'</div>';
+  el.innerHTML=statsHTML(tv,tc,tp,tpp,td,tfx,tsg,accs,tdiv)+holdingsHTML(mergedH,true,null,accs,heroHTML('','All Stocks'))+'<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(mergedH)+endMktHTML()+'</div>';
   var hc=el.querySelector('.holdings-card');if(hc)autoSizeCols(hc,true);
-  bindHoldingClicks(el,true);initDonut(mergedH,getCashItems(accs));initPortfolioChart(allH,_portRange);anim(el);_fillMktPills();
+  bindHoldingClicks(el,true);initDonut(mergedH,getCashItems(accs));initEndMkt(mergedH);initPortfolioChart(allH,_portRange);anim(el);_fillMktPills();
 }
 
 function renderOverview(el){
@@ -1382,7 +1402,7 @@ function renderOverview(el){
 
   var allH=allAccs.reduce(function(arr,a){return arr.concat(a.holdings.map(function(h){return Object.assign({},h,{accountName:a.name,accountId:a.id});}));},[]);
   var mergedH=mergeHoldingsBySymbol(allH);
-  var botRow='<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(mergedH)+'</div>';
+  var botRow='<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(mergedH)+endMktHTML()+'</div>';
   var table='<div class="holdings-card" style="margin-bottom:16px">'+
     '<div class="sticky-table-head">'+heroHTML('','Overview')+'<div class="holdings-header"><span class="holdings-title">Portfolio Overview</span></div>'+
     '</div><div class="holdings-scroll">'+thead+rows+totalRow+'</div>'+
@@ -1390,7 +1410,7 @@ function renderOverview(el){
 
   el.innerHTML=statsHTML(gtv,gtc,gtp,gtpp,gtd,gtfx,gtsg,allAccs,gtdiv)+table+botRow;
   var ovCard=el.querySelector('.holdings-card');if(ovCard)autoSizeOverviewCols(ovCard);
-  bindHoldingClicks(el,true);initDonut(mergedH,getCashItems(allAccs));initPortfolioChart(allH,_portRange);anim(el);_fillMktPills();
+  bindHoldingClicks(el,true);initDonut(mergedH,getCashItems(allAccs));initEndMkt(mergedH);initPortfolioChart(allH,_portRange);anim(el);_fillMktPills();
 }
 
 function renderCategory(el,catId){
@@ -1400,17 +1420,17 @@ function renderCategory(el,catId){
   var tp=tv-tc+tdiv,tpp=tic>0?(tp/tic*100):0,tsg=tp-tfx-tdiv;
   var allH=accs.reduce(function(arr,a){return arr.concat(a.holdings.map(function(h){return Object.assign({},h,{accountName:a.name,accountId:a.id});}));},[]);
   var mergedH=mergeHoldingsBySymbol(allH);
-  el.innerHTML=statsHTML(tv,tc,tp,tpp,td,tfx,tsg,accs,tdiv)+holdingsHTML(mergedH,true,null,accs,heroHTML('',esc(cat.name)))+'<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(mergedH)+'</div>';
+  el.innerHTML=statsHTML(tv,tc,tp,tpp,td,tfx,tsg,accs,tdiv)+holdingsHTML(mergedH,true,null,accs,heroHTML('',esc(cat.name)))+'<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(mergedH)+endMktHTML()+'</div>';
   var hc=el.querySelector('.holdings-card');if(hc)autoSizeCols(hc,true);
-  bindHoldingClicks(el,true);initDonut(mergedH,getCashItems(accs));initPortfolioChart(allH,_portRange);anim(el);_fillMktPills();
+  bindHoldingClicks(el,true);initDonut(mergedH,getCashItems(accs));initEndMkt(mergedH);initPortfolioChart(allH,_portRange);anim(el);_fillMktPills();
 }
 
 function renderAccount(el,acc){
   var s=calcAccountStats(acc);var tpp=s.invCost>0?(s.totalPnL/s.invCost*100):0;var tsg=s.totalPnL-s.totalFxGain-s.totalDividends;
   var cat=getCategory(acc.categoryId);
-  el.innerHTML=statsHTML(s.totalValue,s.totalCost,s.totalPnL,tpp,s.totalDailyPnL,s.totalFxGain,tsg,[acc],s.totalDividends)+holdingsHTML(acc.holdings,false,acc,null,heroHTML(cat?cat.name:'',esc(acc.name)))+'<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(acc.holdings)+'</div>';
+  el.innerHTML=statsHTML(s.totalValue,s.totalCost,s.totalPnL,tpp,s.totalDailyPnL,s.totalFxGain,tsg,[acc],s.totalDividends)+holdingsHTML(acc.holdings,false,acc,null,heroHTML(cat?cat.name:'',esc(acc.name)))+'<div class="bottom-row">'+profitChartHTML()+portfolioChartHTML()+chartHTML()+perfHTML(acc.holdings)+endMktHTML()+'</div>';
   var hc=el.querySelector('.holdings-card');if(hc)autoSizeCols(hc,false);
-  bindHoldingClicks(el,false,acc);initDonut(acc.holdings,getCashItems([acc]));initPortfolioChart(acc.holdings,_portRange);anim(el);_fillMktPills();
+  bindHoldingClicks(el,false,acc);initDonut(acc.holdings,getCashItems([acc]));initEndMkt(acc.holdings);initPortfolioChart(acc.holdings,_portRange);anim(el);_fillMktPills();
 }
 
 function heroHTML(catName,title){
@@ -1956,6 +1976,104 @@ function initDonut(holdings,cashItems){
   var total=allItems.reduce(function(s,i){return s+i.value;},0);
   _initSingleDonut('donutCanvasVal','donutTooltipVal',allItems,total,true);
   _initSingleDonut('donutCanvas','donutTooltip',allItems,total,false);
+}
+
+// ---- END MARKET EXPOSURE ----
+// Stored as appData.endMarkets=[{symbol,market}] (array, since symbols like SHOP.TO can't be Firebase keys)
+function _endMktMap(){var m={};(appData.endMarkets||[]).forEach(function(e){if(e&&e.symbol&&e.market)m[e.symbol]=e.market;});return m;}
+function setEndMarket(sym,market){
+  market=String(market||'').trim();
+  var list=(appData.endMarkets||[]).filter(function(e){return e&&e.symbol!==sym;});
+  if(market)list.push({symbol:sym,market:market});
+  appData.endMarkets=list;saveAll();
+  if(_endMktHoldings)initEndMkt(_endMktHoldings,true);
+}
+var _endMktHoldings=null;
+function endMktHTML(){
+  return '<div class="endmkt-card"><div class="endmkt-head"><span class="chart-title" style="margin:0">Exposure by End Market</span>'
+    +'<span class="endmkt-sub">% of stock market value (excl. cash) · hover a slice for companies</span></div>'
+    +'<div class="endmkt-grid"><div><div class="endmkt-wrap"><canvas id="endMktCanvas"></canvas><div class="endmkt-tip" id="endMktTip"></div></div><div class="endmkt-legend" id="endMktLegend"></div></div>'
+    +'<div><div style="font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Assign end markets</div><div class="endmkt-list" id="endMktList"></div><datalist id="endMktOpts"></datalist></div>'
+    +'</div></div>';
+}
+function initEndMkt(holdings,keepList){
+  _endMktHoldings=holdings;
+  var canvas=document.getElementById('endMktCanvas');if(!canvas)return;
+  var map=_endMktMap();
+  var items=holdings.map(function(h){return{symbol:h.symbol,name:h.name||h.symbol,value:calcHolding(h).marketValue||0};})
+    .filter(function(i){return i.value>0;}).sort(function(a,b){return b.value-a.value;});
+  var total=items.reduce(function(s,i){return s+i.value;},0);
+  var groups={},order=[];
+  items.forEach(function(i){var g=map[i.symbol]||'Unassigned';if(!groups[g]){groups[g]={label:g,value:0,cos:[]};order.push(g);}groups[g].value+=i.value;groups[g].cos.push(i);});
+  var segsData=order.map(function(k){return groups[k];}).sort(function(a,b){
+    if(a.label==='Unassigned')return 1;if(b.label==='Unassigned')return -1;return b.value-a.value;});
+  segsData.forEach(function(g,i){g.color=g.label==='Unassigned'?'#c7c7cc':CHART_COLORS[i%CHART_COLORS.length];});
+  // Legend
+  var lg=document.getElementById('endMktLegend');
+  if(lg)lg.innerHTML=segsData.map(function(g){return'<div class="legend-item" style="font-size:11.5px"><span class="legend-dot" style="background:'+g.color+'"></span><span class="legend-name">'+esc(g.label)+' <span style="font-size:10px">('+g.cos.length+')</span></span><span class="legend-pct">'+(total>0?(g.value/total*100).toFixed(1):'0.0')+'%</span></div>';}).join('');
+  // Assignment list
+  if(!keepList){
+    var lst=document.getElementById('endMktList');
+    if(lst)lst.innerHTML=items.map(function(i){
+      return'<div class="endmkt-row"><div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span class="sym">'+esc(i.symbol)+'</span><span class="nm">'+esc(i.name)+'</span></div>'
+        +'<div class="pc">'+(total>0?(i.value/total*100).toFixed(1):'0.0')+'%</div>'
+        +'<input list="endMktOpts" placeholder="Unassigned" value="'+esc(map[i.symbol]||'')+'" data-sym="'+esc(i.symbol)+'"></div>';
+    }).join('')||'<div class="port-chart-msg" style="padding:20px">No holdings</div>';
+    if(lst)lst.querySelectorAll('input[data-sym]').forEach(function(inp){
+      inp.addEventListener('change',function(){setEndMarket(inp.getAttribute('data-sym'),inp.value);});
+      inp.addEventListener('keydown',function(e){if(e.key==='Enter')inp.blur();});
+    });
+  }
+  var opts=document.getElementById('endMktOpts');
+  if(opts){var seen={};opts.innerHTML=Object.keys(map).map(function(k){return map[k];}).filter(function(m){if(seen[m])return false;seen[m]=1;return true;}).sort().map(function(m){return'<option value="'+esc(m)+'">';}).join('');}
+  // Pie
+  var W=canvas.parentElement.clientWidth||300,H=window.innerWidth<=768?220:260;
+  var dpr=window.devicePixelRatio||1;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.height=H+'px';
+  var ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);
+  var cx=W/2,cy=H/2,r=Math.min(W,H)/2-12;
+  var start=-Math.PI/2;
+  var segs=segsData.map(function(g){var sw=total>0?g.value/total*Math.PI*2:0;var o={start:start,end:start+sw,g:g};start+=sw;return o;});
+  function draw(hov){
+    ctx.clearRect(0,0,W,H);
+    if(!total){ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fillStyle='#e8e8ed';ctx.fill();return;}
+    segs.forEach(function(s,i){
+      var off=hov===i?6:0,mid=(s.start+s.end)/2,ox=Math.cos(mid)*off,oy=Math.sin(mid)*off;
+      ctx.beginPath();ctx.moveTo(cx+ox,cy+oy);ctx.arc(cx+ox,cy+oy,r,s.start,s.end);ctx.closePath();
+      ctx.fillStyle=s.g.color;ctx.globalAlpha=(hov==null||hov===i)?1:0.55;ctx.fill();
+      ctx.globalAlpha=1;ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();
+    });
+    segs.forEach(function(s,i){
+      if(s.end-s.start<0.22)return;
+      var mid=(s.start+s.end)/2,off=hov===i?6:0,tr=r*0.64+off;
+      ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.font='bold 11px -apple-system,sans-serif';
+      ctx.fillText((s.g.value/total*100).toFixed(1)+'%',cx+tr*Math.cos(mid),cy+tr*Math.sin(mid));
+    });
+  }
+  draw(null);
+  var tip=document.getElementById('endMktTip'),cur=null;
+  function hit(mx,my){
+    var dx=mx-cx,dy=my-cy;if(Math.sqrt(dx*dx+dy*dy)>r+8)return null;
+    var a=Math.atan2(dy,dx);if(a<-Math.PI/2)a+=Math.PI*2;
+    for(var i=0;i<segs.length;i++){if(a>=segs[i].start&&a<segs[i].end)return i;}return null;
+  }
+  canvas.onmousemove=function(e){
+    var bz=parseFloat(document.body.style.zoom)||1,rect=canvas.getBoundingClientRect();
+    var mx=e.clientX/bz-rect.left,my=e.clientY/bz-rect.top,h=hit(mx,my);
+    if(h!==cur){cur=h;draw(h);
+      if(h!=null&&tip){var g=segs[h].g;
+        tip.innerHTML='<div class="endmkt-tip-h"><span>'+esc(g.label)+'</span><span>'+(g.value/total*100).toFixed(1)+'%</span></div>'
+          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+'</span><span>'+(c.value/total*100).toFixed(1)+'%</span></div>';}).join('');
+      }
+    }
+    if(h!=null&&tip){
+      tip.style.opacity='1';
+      var pw=canvas.parentElement.clientWidth,tw=tip.offsetWidth,th=tip.offsetHeight;
+      var tx=mx+14,ty=my-th/2;if(tx+tw>pw)tx=mx-tw-14;if(tx<0)tx=0;if(ty<0)ty=0;
+      tip.style.left=tx+'px';tip.style.top=ty+'px';
+    }else if(tip)tip.style.opacity='0';
+  };
+  canvas.onmouseleave=function(){cur=null;draw(null);if(tip)tip.style.opacity='0';};
 }
 
 // ---- PORTFOLIO HISTORY CHART ----
