@@ -113,12 +113,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
 .endmkt-tip-r span:last-child{font-variant-numeric:tabular-nums}
 .endmkt-legend{display:flex;flex-direction:column;gap:3px;margin-top:8px}
 .endmkt-list{max-height:340px;overflow-y:auto;border-top:1px solid var(--border-light)}
-.endmkt-row{display:grid;grid-template-columns:1fr 58px 150px;gap:8px;align-items:center;padding:3px 2px;border-bottom:1px solid var(--border-light);font-size:11.5px}
+.endmkt-row{display:grid;grid-template-columns:minmax(0,1fr) 50px minmax(180px,1.5fr);gap:8px;align-items:center;padding:3px 2px;border-bottom:1px solid var(--border-light);font-size:11.5px}
 .endmkt-row .sym{font-weight:600}
 .endmkt-row .nm{color:var(--text2);font-size:10.5px;margin-left:5px}
 .endmkt-row .pc{text-align:right;color:var(--text2);font-variant-numeric:tabular-nums}
 .endmkt-row input{width:100%;font-size:11.5px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-family:inherit}
 .endmkt-row input:placeholder-shown{border-style:dashed}
+.endmkt-auto{font-size:9px;font-weight:600;color:var(--text2);background:var(--surface2);border-radius:4px;padding:1px 4px;flex-shrink:0}
 .port-chart-card{background:var(--card);border-radius:var(--radius);padding:14px 18px 12px;box-shadow:var(--shadow);border:1px solid var(--border-light)}
 .profit-chart-card{background:var(--card);border-radius:var(--radius);padding:14px 18px 12px;box-shadow:var(--shadow);border:1px solid var(--border-light)}
 .port-chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -1979,53 +1980,237 @@ function initDonut(holdings,cashItems){
 }
 
 // ---- END MARKET EXPOSURE ----
-// Stored as appData.endMarkets=[{symbol,market}] (array, since symbols like SHOP.TO can't be Firebase keys)
-function _endMktMap(){var m={};(appData.endMarkets||[]).forEach(function(e){if(e&&e.symbol&&e.market)m[e.symbol]=e.market;});return m;}
-function setEndMarket(sym,market){
-  market=String(market||'').trim();
-  var list=(appData.endMarkets||[]).filter(function(e){return e&&e.symbol!==sym;});
-  if(market)list.push({symbol:sym,market:market});
-  appData.endMarkets=list;saveAll();
-  if(_endMktHoldings)initEndMkt(_endMktHoldings,true);
+// Stored as appData.endMarkets=[{symbol,splits:[{m,p}],src:'auto'|'user'}] (array, since symbols like SHOP.TO can't be Firebase keys).
+// End market = the customer market a company's revenue comes from (judgment-based splits, approx. % of revenue).
+var EM_NAMES={AI:'AI & Data Center',CE:'Consumer Electronics & PCs',SW:'Enterprise Software & IT',AD:'Digital Advertising',EC:'E-commerce',
+  RT:'Consumer Retail',CS:'Consumer Staples',TL:'Travel, Leisure & Restaurants',AU:'Autos & Mobility',CA:'Commercial Aerospace',
+  DF:'Defense & Government',IN:'Industrial & Manufacturing',CI:'Construction & Infrastructure',OG:'Oil & Gas',PU:'Power & Utilities',
+  HC:'Healthcare',BK:'Banking & Lending',IS:'Insurance',CM:'Capital Markets & Wealth',PY:'Payments',RE:'Real Estate',
+  MM:'Mining & Materials',TM:'Telecom & Media',TR:'Transportation & Logistics',FD:'Diversified Funds & ETFs'};
+// Judgment table. Keys are base tickers (exchange suffix stripped) unless a Canadian name collides with a US one, then full symbol.
+var EM_TABLE={
+ // Mega-cap tech
+ AAPL:'CE75 TM15 PY5 AD5',MSFT:'SW65 AI25 CE10',GOOGL:'AD75 AI15 TM10',GOOG:'AD75 AI15 TM10',AMZN:'EC60 AI20 AD10 RT10',
+ META:'AD97 CE3',NFLX:'TM100',TSLA:'AU85 PU15',ORCL:'SW60 AI40',IBM:'SW75 AI15 DF10',CSCO:'AI45 SW35 TM20',
+ CRM:'SW100',ADBE:'SW70 AD30',NOW:'SW100',INTU:'SW100',PLTR:'DF55 SW45',SNOW:'SW70 AI30',PANW:'SW100',CRWD:'SW100',FTNT:'SW100',
+ ZS:'SW100',DDOG:'SW70 AI30',NET:'SW70 AI30',MDB:'SW100',WDAY:'SW100',TEAM:'SW100',ADSK:'CI60 IN40',SAP:'SW100',UBER:'TL70 EC30',
+ LYFT:'TL100',ABNB:'TL100',BKNG:'TL100',EXPE:'TL100',DASH:'EC100',SPOT:'TM100',SHOP:'EC100',MELI:'EC60 PY40',SE:'EC55 TL15 PY30',
+ PDD:'EC100',BABA:'EC70 AI20 TM10',JD:'EC100',ETSY:'EC100',EBAY:'EC100',W:'EC100',CPNG:'EC100',PINS:'AD100',SNAP:'AD100',RDDT:'AD100',
+ TTD:'AD100',APP:'AD100',U:'AD60 CE40',RBLX:'TM100',EA:'TM100',TTWO:'TM100',DIS:'TM65 TL35',CMCSA:'TM90 TL10',WBD:'TM100',
+ // Semis & hardware (split by customer end market)
+ NVDA:'AI88 CE9 AU3',AMD:'AI50 CE40 IN10',INTC:'CE55 AI30 IN15',AVGO:'AI55 TM25 SW20',QCOM:'CE70 AU15 IN15',TXN:'IN40 AU30 CE20 TM10',
+ ADI:'IN50 AU30 CE10 TM10',MU:'AI55 CE40 AU5',TSM:'AI60 CE30 AU5 IN5',ASML:'AI60 CE40',AMAT:'AI55 CE45',LRCX:'AI55 CE45',KLAC:'AI55 CE45',
+ MRVL:'AI75 TM15 AU10',ARM:'CE60 AI30 AU10',SMCI:'AI100',DELL:'AI45 CE55',HPQ:'CE100',HPE:'AI60 TM40',ANET:'AI100',VRT:'AI80 TM20',
+ ON:'AU55 IN35 CE10',NXPI:'AU55 IN20 CE15 TM10',MCHP:'IN45 AU20 DF15 CE20',STM:'AU45 IN35 CE20',MPWR:'AI45 AU20 CE20 IN15',
+ WDC:'AI60 CE40',STX:'AI85 CE15',GLW:'AI35 CE45 AU20',APH:'AI35 AU20 DF15 IN15 TM15',TEL:'AU60 IN30 TM10',COHR:'AI70 IN30',
+ CLS:'AI75 IN15 DF10',SNPS:'AI60 CE40',CDNS:'AI60 CE40',
+ // Payments & fintech
+ V:'PY100',MA:'PY100',PYPL:'PY85 EC15',AXP:'PY80 TL20',SQ:'PY100',XYZ:'PY100',FI:'PY60 BK40',FISV:'PY60 BK40',FIS:'BK60 PY40',
+ GPN:'PY100',COIN:'CM100',HOOD:'CM100',SOFI:'BK70 CM30',AFRM:'PY100',NU:'BK100',
+ // Banks, insurers, capital markets
+ JPM:'BK60 CM40',BAC:'BK70 CM30',WFC:'BK85 CM15',C:'BK60 CM40',GS:'CM100',MS:'CM100',SCHW:'CM100',BLK:'CM100',BX:'CM70 RE30',
+ KKR:'CM75 IS25',APO:'CM50 IS50',ARES:'CM100',USB:'BK100',PNC:'BK100',TFC:'BK100',COF:'BK75 PY25',SPGI:'CM100',MCO:'CM100',
+ ICE:'CM80 RE20',CME:'CM100',NDAQ:'CM100',MSCI:'CM100',BRK:'IS45 TR15 PU10 IN15 RT15','BRK-B':'IS45 TR15 PU10 IN15 RT15',
+ PGR:'IS100',CB:'IS100',TRV:'IS100',ALL:'IS100',AIG:'IS100',MET:'IS100',PRU:'IS100',AON:'IS100',MMC:'IS100',AJG:'IS100',
+ UNH:'HC100',ELV:'HC100',CI:'HC100',HUM:'HC100',CVS:'HC80 RT20',
+ RY:'BK65 CM35',TD:'BK80 CM20',BNS:'BK80 CM20',BMO:'BK75 CM25',CM:'BK80 CM20',NA:'BK70 CM30',EQB:'BK100',
+ MFC:'IS70 CM30',SLF:'IS70 CM30',GWO:'IS75 CM25',IFC:'IS100',FFH:'IS100',POW:'IS55 CM45',BN:'CM40 RE30 PU20 IS10',
+ BAM:'CM100',ONEX:'CM100',TRI:'SW75 CM25','X.TO':'CM100',
+ // Healthcare
+ LLY:'HC100',JNJ:'HC100',ABBV:'HC100',MRK:'HC100',PFE:'HC100',NVO:'HC100',AZN:'HC100',BMY:'HC100',AMGN:'HC100',GILD:'HC100',
+ VRTX:'HC100',REGN:'HC100',ISRG:'HC100',SYK:'HC100',BSX:'HC100',MDT:'HC100',ABT:'HC85 CS15',TMO:'HC85 IN15',DHR:'HC90 IN10',
+ ZTS:'CS100',IDXX:'CS100',HCA:'HC100',MCK:'HC100',COR:'HC100',CAH:'HC100',DXCM:'HC100',
+ // Consumer
+ WMT:'RT65 CS30 EC5',COST:'CS60 RT40',TGT:'RT55 CS45',HD:'CI45 RT55',LOW:'CI40 RT60',TJX:'RT100',NKE:'RT100',LULU:'RT100',
+ SBUX:'TL100',MCD:'TL100',CMG:'TL100',YUM:'TL100',QSR:'TL100',DPZ:'TL100',WING:'TL100',MAR:'TL100',HLT:'TL100',RCL:'TL100',CCL:'TL100',
+ PG:'CS100',KO:'CS100',PEP:'CS100',PM:'CS100',MO:'CS100',MDLZ:'CS100',CL:'CS100',KMB:'CS100',EL:'RT100',KDP:'CS100',STZ:'CS100',
+ MNST:'CS100',GIS:'CS100',KHC:'CS100',HSY:'CS100',
+ ORLY:'AU80 RT20',AZO:'AU80 RT20',F:'AU100',GM:'AU100',TM:'AU100',RACE:'AU100',RIVN:'AU100',
+ ATD:'RT55 OG45',DOL:'RT100',L:'IS100','L.TO':'CS70 HC30',MRU:'CS100',WN:'CS70 RE30',CTC:'RT80 AU10 PY10',GIL:'RT100',
+ MG:'AU100',LNR:'AU100',ATZ:'RT100',
+ // Industrials / aerospace / defense
+ GE:'CA75 DF25',GEV:'PU100',RTX:'CA60 DF40',BA:'CA65 DF35',LMT:'DF100',NOC:'DF100',GD:'DF65 CA35',LHX:'DF100',HII:'DF100',
+ HEI:'CA65 DF35',TDG:'CA60 DF40',HWM:'CA65 PU20 AU15',TXT:'DF35 CA45 IN20',AXON:'DF100',KTOS:'DF100',CAE:'CA60 DF40',
+ BBD:'CA100','BBD-B':'CA100',
+ HON:'CA40 IN35 CI25',CAT:'CI45 MM25 PU20 IN10',DE:'CS70 CI30',ETN:'AI30 CI35 IN20 CA15',EMR:'IN80 OG20',PH:'IN55 CA35 CI10',
+ ITW:'IN50 AU25 CI25',MMM:'IN60 CE20 HC20',ROK:'IN80 AU20',CMI:'TR50 IN30 PU20',PCAR:'TR100',URI:'CI100',PWR:'PU70 AI20 CI10',
+ FIX:'AI40 CI60',EME:'CI70 AI30',JCI:'CI100',CARR:'CI100',TT:'CI70 AI30',LII:'CI100',WSO:'CI100',
+ WCN:'CI100',WM:'CI100',RSG:'CI100',GFL:'CI100',WSP:'CI85 PU15',STN:'CI80 HC20',TIH:'CI80 MM20',FTT:'CI45 MM55',
+ UNP:'TR100',CSX:'TR100',NSC:'TR100',CNR:'TR100',CNI:'TR100',CP:'TR100',CPKC:'TR100',UPS:'TR90 EC10',FDX:'TR90 EC10',
+ ODFL:'TR100',TFII:'TR100',CHRW:'TR100',DAL:'TL100',UAL:'TL100',AC:'TL100',
+ // Energy & utilities
+ XOM:'OG100',CVX:'OG100',COP:'OG100',EOG:'OG100',OXY:'OG90 MM10',SLB:'OG100',HAL:'OG100',BKR:'OG70 PU30',KMI:'OG100',
+ WMB:'OG100',ENB:'OG80 PU20',TRP:'OG60 PU40',PPL:'PU100','PPL.TO':'OG100',SU:'OG100',CNQ:'OG100',CVE:'OG100',IMO:'OG100',
+ TOU:'OG100',ARX:'OG100',KEY:'OG100',
+ NEE:'PU100',SO:'PU100',DUK:'PU100',CEG:'PU80 AI20',VST:'PU80 AI20',AEP:'PU100',D:'PU100',SRE:'PU100',FTS:'PU100',EMA:'PU100',
+ 'H.TO':'PU100',H:'TL100',AQN:'PU100',BEP:'PU100',CPX:'PU100',NPI:'PU100',BIP:'CI35 PU35 TR30',CU:'PU100',
+ // Materials & mining
+ LIN:'IN45 HC15 CS20 MM20',APD:'IN60 HC10 MM30',SHW:'CI80 IN20',ECL:'CS40 IN40 HC20',FCX:'MM100',NEM:'MM100',SCCO:'MM100',
+ NUE:'CI50 AU25 IN25',VMC:'CI100',MLM:'CI100',ABX:'MM100',GOLD:'MM100',AEM:'MM100',FNV:'MM100',WPM:'MM100','K.TO':'MM100',
+ TECK:'MM100',FM:'MM100',CCO:'PU100',CCJ:'PU100',NTR:'CS100',LUN:'MM100',
+ // Telecom & media
+ T:'TM100',VZ:'TM100',TMUS:'TM100',BCE:'TM100',RCI:'TM100','RCI-B':'TM100',QBR:'TM100','QBR-B':'TM100',CHTR:'TM100',
+ // Real estate & infra
+ PLD:'RE70 EC30',AMT:'TM60 RE40',CCI:'TM60 RE40',EQIX:'AI100',DLR:'AI100',O:'RE100',SPG:'RE100',PSA:'RE100',WELL:'HC50 RE50',
+ // Canadian tech & software
+ CSU:'SW100',OTEX:'SW100',DSG:'SW80 TR20',KXS:'SW100',LSPD:'PY60 SW40',DCBO:'SW100',GIB:'SW100','GIB-A':'SW100',
+ // Broad ETFs
+ SPY:'FD100',VOO:'FD100',IVV:'FD100',QQQ:'FD100',VTI:'FD100',XIU:'FD100',XIC:'FD100',VFV:'FD100',VEQT:'FD100',XEQT:'FD100',
+ ZSP:'FD100',VGRO:'FD100',XGRO:'FD100',VTV:'FD100',SCHD:'FD100',VXUS:'FD100',XAW:'FD100'
+};
+function _emParse(spec){
+  var out=[];String(spec||'').replace(/([A-Z]{2})(\d+)/g,function(_,c,p){if(EM_NAMES[c])out.push({m:EM_NAMES[c],p:+p});});var t=out.reduce(function(s,x){return s+x.p;},0);out.forEach(function(x){x.p=x.p/t*100;});return out;
+}
+function _emLookupTable(sym){
+  var s=String(sym||'').toUpperCase();
+  if(EM_TABLE[s])return _emParse(EM_TABLE[s]);
+  var base=s.replace(/\.(TO|V|NE|CN|TSX|U|UN)$/,'').replace(/-U$|-UN$/,'');
+  if(EM_TABLE[base])return _emParse(EM_TABLE[base]);
+  var base2=base.replace(/[-.][A-Z]$/,''); // e.g. RCI-B -> RCI, BBD.B -> BBD
+  if(EM_TABLE[base2])return _emParse(EM_TABLE[base2]);
+  return null;
+}
+// Map a Yahoo sector/industry (fallback for tickers not in the table)
+function _emFromYahoo(sector,industry,quoteType){
+  var i=String(industry||'').toLowerCase(),s=String(sector||'').toLowerCase();
+  if(/etf|mutualfund/i.test(quoteType||''))return'FD100';
+  var rules=[[/semiconductor equipment/,'AI55 CE45'],[/semiconductor/,'AI45 CE25 IN15 AU15'],[/computer hardware/,'AI50 CE50'],
+    [/communication equipment/,'TM60 AI40'],[/consumer electronics/,'CE100'],[/software|information technology services/,'SW100'],
+    [/internet content/,'AD100'],[/internet retail/,'EC100'],[/aerospace/,'CA50 DF50'],[/auto|recreational vehicles/,'AU100'],
+    [/bank|mortgage/,'BK100'],[/insurance/,'IS100'],[/credit services/,'PY100'],[/asset management|capital markets|financial data|exchanges|shell companies/,'CM100'],
+    [/oil|gas|coal|energy/,'OG100'],[/utilit/,'PU100'],[/uranium/,'PU100'],[/telecom|entertainment|broadcasting|publishing|advertising/,'TM100'],
+    [/reit|real estate/,'RE100'],[/engineering|construction|building|infrastructure|waste|lumber|farm & heavy/,'CI100'],
+    [/gold|silver|copper|metals|mining|aluminum|steel|chemical|coking|paper|agricultural inputs/,'MM100'],
+    [/railroad|trucking|freight|shipping|marine|logistics/,'TR100'],[/airline|restaurant|lodging|resort|travel|leisure|gambling|casino/,'TL100'],
+    [/grocery|discount|beverage|food|household|tobacco|packaged|confection|farm products|personal products/,'CS100'],
+    [/retail|apparel|footwear|department|home improvement|luxury|furnishing/,'RT100'],
+    [/drug|biotech|medical|health|diagnostic|pharma/,'HC100']];
+  for(var k=0;k<rules.length;k++)if(rules[k][0].test(i))return rules[k][1];
+  var secMap={technology:'SW100','consumer cyclical':'RT100','consumer defensive':'CS100',energy:'OG100','basic materials':'MM100',
+    'real estate':'RE100','financial services':'CM100','communication services':'TM100',utilities:'PU100',healthcare:'HC100',industrials:'IN100'};
+  return secMap[s]||null;
+}
+var _emYahooTried={};
+function _emYahooLookup(sym){
+  if(_emYahooTried[sym])return Promise.resolve(null);
+  _emYahooTried[sym]=1;
+  var url='https://query2.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(sym)+'&quotesCount=3&newsCount=0';
+  return fetch(YAHOO_RELAY+encodeURIComponent(url)).then(function(r){return r.ok?r.json():null;}).then(function(d){
+    if(!d||!d.quotes||!d.quotes.length)return null;
+    var q=d.quotes.filter(function(x){return String(x.symbol).toUpperCase()===sym.toUpperCase();})[0]||d.quotes[0];
+    var spec=_emFromYahoo(q.sector||q.sectorDisp,q.industry||q.industryDisp,q.quoteType);
+    return spec?_emParse(spec):null;
+  }).catch(function(){return null;});
+}
+function _emEntries(){
+  // Normalise stored entries (older {symbol,market} format -> splits)
+  var m={};(appData.endMarkets||[]).forEach(function(e){
+    if(!e||!e.symbol)return;
+    var sp=Array.isArray(e.splits)?e.splits.filter(function(x){return x&&x.m&&x.p>0;}):(e.market?[{m:e.market,p:100}]:[]);
+    if(sp.length)m[e.symbol]={splits:sp,src:e.src||'user'};
+  });
+  return m;
+}
+function _emSaveEntries(map){
+  appData.endMarkets=Object.keys(map).map(function(k){return{symbol:k,splits:map[k].splits,src:map[k].src};});
+  saveAll();
+}
+function _emFmt(splits){
+  if(!splits||!splits.length)return'';
+  if(splits.length===1)return splits[0].m;
+  return splits.map(function(s){return s.m+' '+Math.round(s.p);}).join(', ');
+}
+// "Aerospace 60, Defense 40" | "Aerospace" | "Aerospace, Defense" (equal split). Normalised to 100.
+function _emParseInput(txt){
+  var parts=String(txt||'').split(/[,;]/).map(function(x){return x.trim();}).filter(Boolean);
+  var out=parts.map(function(p){var mm=p.match(/^(.*?)\s*(\d+(?:\.\d+)?)\s*%?$/);return mm&&mm[1]?{m:mm[1].trim(),p:+mm[2]}:{m:p,p:null};});
+  var given=out.filter(function(x){return x.p!=null;}).reduce(function(s,x){return s+x.p;},0);
+  var blanks=out.filter(function(x){return x.p==null;});
+  blanks.forEach(function(x){x.p=blanks.length?Math.max(0,(100-given))/blanks.length:0;});
+  if(given===0)out.forEach(function(x){x.p=100/out.length;});
+  var tot=out.reduce(function(s,x){return s+x.p;},0);
+  return out.filter(function(x){return x.p>0;}).map(function(x){return{m:x.m,p:tot>0?x.p/tot*100:0};});
+}
+function setEndMarket(sym,txt){
+  var map=_emEntries();
+  var sp=_emParseInput(txt);
+  if(sp.length)map[sym]={splits:sp,src:'user'};else delete map[sym]; // cleared -> will be re-auto-tagged
+  _emSaveEntries(map);
+  if(_endMktHoldings)initEndMkt(_endMktHoldings);
+}
+function reautoEndMarkets(){
+  if(!confirm('Re-run auto-tagging for every stock? This replaces your manual end-market edits too.'))return;
+  appData.endMarkets=[];_emYahooTried={};saveAll();
+  if(_endMktHoldings)initEndMkt(_endMktHoldings);
+}
+// Fill in any untagged holdings: judgment table first, Yahoo industry as fallback.
+function _emAutoTag(items){
+  var map=_emEntries(),changed=false,pending=[];
+  items.forEach(function(i){
+    if(map[i.symbol])return;
+    var sp=_emLookupTable(i.symbol);
+    if(sp&&sp.length){map[i.symbol]={splits:sp,src:'auto'};changed=true;}
+    else if(!_emYahooTried[i.symbol])pending.push(i.symbol);
+  });
+  if(changed)_emSaveEntries(map);
+  if(pending.length){
+    Promise.all(pending.map(function(sym){return _emYahooLookup(sym).then(function(sp){return{sym:sym,sp:sp};});})).then(function(res){
+      var m2=_emEntries(),ch=false;
+      res.forEach(function(r){if(r.sp&&r.sp.length&&!m2[r.sym]){m2[r.sym]={splits:r.sp,src:'auto'};ch=true;}});
+      if(ch)_emSaveEntries(m2);if(_endMktHoldings&&document.getElementById('endMktCanvas'))initEndMkt(_endMktHoldings);
+    });
+  }
+  return map;
 }
 var _endMktHoldings=null;
 function endMktHTML(){
   return '<div class="endmkt-card"><div class="endmkt-head"><span class="chart-title" style="margin:0">Exposure by End Market</span>'
-    +'<span class="endmkt-sub">% of stock market value (excl. cash) · hover a slice for companies</span></div>'
+    +'<span class="endmkt-sub">% of stock market value (excl. cash) · hover a slice for companies · <a href="#" onclick="reautoEndMarkets();return false" style="color:var(--blue,#0071e3)">re-run auto-tag</a></span></div>'
     +'<div class="endmkt-grid"><div><div class="endmkt-wrap"><canvas id="endMktCanvas"></canvas><div class="endmkt-tip" id="endMktTip"></div></div><div class="endmkt-legend" id="endMktLegend"></div></div>'
-    +'<div><div style="font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">Assign end markets</div><div class="endmkt-list" id="endMktList"></div><datalist id="endMktOpts"></datalist></div>'
+    +'<div><div style="font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">End markets by stock <span style="font-weight:500;text-transform:none;letter-spacing:0">— edit as e.g. “Commercial Aerospace 60, Defense &amp; Government 40”; clear to re-auto</span></div><div class="endmkt-list" id="endMktList"></div><datalist id="endMktOpts"></datalist></div>'
     +'</div></div>';
 }
-function initEndMkt(holdings,keepList){
+function initEndMkt(holdings){
   _endMktHoldings=holdings;
   var canvas=document.getElementById('endMktCanvas');if(!canvas)return;
-  var map=_endMktMap();
   var items=holdings.map(function(h){return{symbol:h.symbol,name:h.name||h.symbol,value:calcHolding(h).marketValue||0};})
     .filter(function(i){return i.value>0;}).sort(function(a,b){return b.value-a.value;});
+  var map=_emAutoTag(items);
   var total=items.reduce(function(s,i){return s+i.value;},0);
   var groups={},order=[];
-  items.forEach(function(i){var g=map[i.symbol]||'Unassigned';if(!groups[g]){groups[g]={label:g,value:0,cos:[]};order.push(g);}groups[g].value+=i.value;groups[g].cos.push(i);});
+  items.forEach(function(i){
+    var e=map[i.symbol];var sp=e?e.splits:[{m:'Unassigned',p:100}];
+    sp.forEach(function(x){
+      var g=x.m;if(!groups[g]){groups[g]={label:g,value:0,cos:[]};order.push(g);}
+      var v=i.value*x.p/100;groups[g].value+=v;groups[g].cos.push({symbol:i.symbol,name:i.name,value:v,share:x.p});
+    });
+  });
   var segsData=order.map(function(k){return groups[k];}).sort(function(a,b){
     if(a.label==='Unassigned')return 1;if(b.label==='Unassigned')return -1;return b.value-a.value;});
-  segsData.forEach(function(g,i){g.color=g.label==='Unassigned'?'#c7c7cc':CHART_COLORS[i%CHART_COLORS.length];});
+  var palette=['#0071e3','#34c759','#ff9500','#ff3b30','#5856d6','#ffcc00','#af52de','#5ac8fa','#ff2d55','#2bb5a5','#a2845e','#1d3f8f','#8fd14f','#d9822b','#b5446e','#00a3a3','#7a5cff','#c0a000','#e06666','#3d8b3d','#ff8fab','#6b7f99','#9c27b0','#4fc3f7','#bf6c00'];
+  segsData.forEach(function(g,i){g.cos.sort(function(a,b){return b.value-a.value;});g.color=g.label==='Unassigned'?'#c7c7cc':palette[i%palette.length];});
+  var pct=function(v){return total>0?(v/total*100).toFixed(1):'0.0';};
   // Legend
   var lg=document.getElementById('endMktLegend');
-  if(lg)lg.innerHTML=segsData.map(function(g){return'<div class="legend-item" style="font-size:11.5px"><span class="legend-dot" style="background:'+g.color+'"></span><span class="legend-name">'+esc(g.label)+' <span style="font-size:10px">('+g.cos.length+')</span></span><span class="legend-pct">'+(total>0?(g.value/total*100).toFixed(1):'0.0')+'%</span></div>';}).join('');
-  // Assignment list
-  if(!keepList){
-    var lst=document.getElementById('endMktList');
-    if(lst)lst.innerHTML=items.map(function(i){
+  if(lg)lg.innerHTML=segsData.map(function(g){return'<div class="legend-item" style="font-size:11.5px"><span class="legend-dot" style="background:'+g.color+'"></span><span class="legend-name">'+esc(g.label)+' <span style="font-size:10px">('+g.cos.length+')</span></span><span class="legend-pct">'+pct(g.value)+'%</span></div>';}).join('');
+  // Per-stock list (skip re-render while the user is typing in it)
+  var lst=document.getElementById('endMktList');
+  if(lst&&!lst.contains(document.activeElement)){
+    lst.innerHTML=items.map(function(i){
+      var e=map[i.symbol];
       return'<div class="endmkt-row"><div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span class="sym">'+esc(i.symbol)+'</span><span class="nm">'+esc(i.name)+'</span></div>'
-        +'<div class="pc">'+(total>0?(i.value/total*100).toFixed(1):'0.0')+'%</div>'
-        +'<input list="endMktOpts" placeholder="Unassigned" value="'+esc(map[i.symbol]||'')+'" data-sym="'+esc(i.symbol)+'"></div>';
+        +'<div class="pc">'+pct(i.value)+'%</div>'
+        +'<div style="display:flex;align-items:center;gap:4px;min-width:0"><input list="endMktOpts" placeholder="'+(_emYahooTried[i.symbol]&&!e?'Unassigned':'Looking up…')+'" value="'+esc(e?_emFmt(e.splits):'')+'" data-sym="'+esc(i.symbol)+'" title="'+esc(e?_emFmt(e.splits):'')+'">'
+        +(e&&e.src==='auto'?'<span class="endmkt-auto" title="Auto-tagged — edit to override">auto</span>':'')+'</div></div>';
     }).join('')||'<div class="port-chart-msg" style="padding:20px">No holdings</div>';
-    if(lst)lst.querySelectorAll('input[data-sym]').forEach(function(inp){
+    lst.querySelectorAll('input[data-sym]').forEach(function(inp){
       inp.addEventListener('change',function(){setEndMarket(inp.getAttribute('data-sym'),inp.value);});
       inp.addEventListener('keydown',function(e){if(e.key==='Enter')inp.blur();});
     });
   }
   var opts=document.getElementById('endMktOpts');
-  if(opts){var seen={};opts.innerHTML=Object.keys(map).map(function(k){return map[k];}).filter(function(m){if(seen[m])return false;seen[m]=1;return true;}).sort().map(function(m){return'<option value="'+esc(m)+'">';}).join('');}
+  if(opts){var names={};Object.keys(EM_NAMES).forEach(function(k){names[EM_NAMES[k]]=1;});Object.keys(map).forEach(function(k){map[k].splits.forEach(function(x){names[x.m]=1;});});
+    opts.innerHTML=Object.keys(names).sort().map(function(m){return'<option value="'+esc(m)+'">';}).join('');}
   // Pie
   var W=canvas.parentElement.clientWidth||300,H=window.innerWidth<=768?220:260;
   var dpr=window.devicePixelRatio||1;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.height=H+'px';
@@ -2047,7 +2232,7 @@ function initEndMkt(holdings,keepList){
       var mid=(s.start+s.end)/2,off=hov===i?6:0,tr=r*0.64+off;
       ctx.fillStyle='#fff';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.font='bold 11px -apple-system,sans-serif';
-      ctx.fillText((s.g.value/total*100).toFixed(1)+'%',cx+tr*Math.cos(mid),cy+tr*Math.sin(mid));
+      ctx.fillText(pct(s.g.value)+'%',cx+tr*Math.cos(mid),cy+tr*Math.sin(mid));
     });
   }
   draw(null);
@@ -2062,8 +2247,8 @@ function initEndMkt(holdings,keepList){
     var mx=e.clientX/bz-rect.left,my=e.clientY/bz-rect.top,h=hit(mx,my);
     if(h!==cur){cur=h;draw(h);
       if(h!=null&&tip){var g=segs[h].g;
-        tip.innerHTML='<div class="endmkt-tip-h"><span>'+esc(g.label)+'</span><span>'+(g.value/total*100).toFixed(1)+'%</span></div>'
-          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+'</span><span>'+(c.value/total*100).toFixed(1)+'%</span></div>';}).join('');
+        tip.innerHTML='<div class="endmkt-tip-h"><span>'+esc(g.label)+'</span><span>'+pct(g.value)+'%</span></div>'
+          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+(c.share<99.5?' <em style="opacity:.65;font-style:normal">('+Math.round(c.share)+'% of co.)</em>':'')+'</span><span>'+pct(c.value)+'%</span></div>';}).join('');
       }
     }
     if(h!=null&&tip){
