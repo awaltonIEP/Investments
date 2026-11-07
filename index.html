@@ -106,7 +106,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text'
 @media(max-width:900px){.endmkt-grid{grid-template-columns:1fr}}
 .endmkt-wrap{position:relative}
 .endmkt-wrap canvas{display:block;width:100%}
-.endmkt-tip{position:absolute;background:rgba(29,29,31,0.94);color:#fff;font-size:11.5px;padding:8px 10px;border-radius:8px;pointer-events:none;opacity:0;transition:opacity .12s;z-index:20;min-width:180px;max-width:280px;top:0;left:0}
+.endmkt-tip{position:absolute;background:rgba(29,29,31,0.94);color:#fff;font-size:11.5px;padding:8px 10px;border-radius:8px;pointer-events:none;opacity:0;transition:opacity .12s;z-index:20;min-width:180px;max-width:380px;top:0;left:0}
 .endmkt-tip-h{display:flex;justify-content:space-between;gap:12px;font-weight:700;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.2)}
 .endmkt-tip-r{display:flex;justify-content:space-between;gap:12px;line-height:1.55}
 .endmkt-tip-r span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2090,18 +2090,45 @@ function _emFromYahoo(sector,industry,quoteType){
     'real estate':'RE100','financial services':'CM100','communication services':'TM100',utilities:'PU100',healthcare:'HC100',industrials:'IN100'};
   return secMap[s]||null;
 }
-var _emYahooTried={};
-function _emYahooLookup(sym){
-  if(_emYahooTried[sym])return Promise.resolve(null);
-  _emYahooTried[sym]=1;
+var _emYahooTried={},_ysTried={};
+// Yahoo search -> {sector,industry,quoteType} (via private relay)
+function _ysQuery(sym){
   var url='https://query2.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(sym)+'&quotesCount=3&newsCount=0';
   return fetch(YAHOO_RELAY+encodeURIComponent(url)).then(function(r){return r.ok?r.json():null;}).then(function(d){
     if(!d||!d.quotes||!d.quotes.length)return null;
     var q=d.quotes.filter(function(x){return String(x.symbol).toUpperCase()===sym.toUpperCase();})[0]||d.quotes[0];
-    var spec=_emFromYahoo(q.sector||q.sectorDisp,q.industry||q.industryDisp,q.quoteType);
-    return spec?_emParse(spec):null;
+    return{sector:q.sectorDisp||q.sector||'',industry:q.industryDisp||q.industry||'',quoteType:q.quoteType||''};
   }).catch(function(){return null;});
 }
+function _emYahooLookup(sym){
+  if(_emYahooTried[sym])return Promise.resolve(null);
+  _emYahooTried[sym]=1;
+  return _ysQuery(sym).then(function(q){
+    if(!q)return null;_ysStore(sym,q);
+    var spec=_emFromYahoo(q.sector,q.industry,q.quoteType);return spec?_emParse(spec):null;
+  });
+}
+// Cached Yahoo sectors: appData.yahooSectors=[{symbol,sector,industry}]
+function _ysMap(){var m={};(appData.yahooSectors||[]).forEach(function(e){if(e&&e.symbol)m[e.symbol]=e;});return m;}
+function _ysStore(sym,q){
+  var sector=q.sector||(/etf|mutualfund/i.test(q.quoteType)?'Funds & ETFs':'');
+  var industry=q.industry||(/etf/i.test(q.quoteType)?'ETF':/mutualfund/i.test(q.quoteType)?'Mutual Fund':'');
+  if(!sector)return false;
+  var list=(appData.yahooSectors||[]).filter(function(e){return e&&e.symbol!==sym;});
+  list.push({symbol:sym,sector:sector,industry:industry});appData.yahooSectors=list;return true;
+}
+function _ysFill(items){
+  var m=_ysMap(),need=items.filter(function(i){return!m[i.symbol]&&!_ysTried[i.symbol];}).map(function(i){return i.symbol;});
+  if(!need.length)return;
+  need.forEach(function(sym){_ysTried[sym]=1;});
+  Promise.all(need.map(function(sym){return _ysQuery(sym).then(function(q){return q?_ysStore(sym,q):false;});})).then(function(r){
+    if(r.some(Boolean))saveAll();
+    if(_endMktHoldings&&document.getElementById('endMktCanvas'))initEndMkt(_endMktHoldings);
+  });
+}
+var _emMode=(function(){try{return localStorage.getItem('endmkt_mode')||'sector';}catch(e){return'sector';}})();
+function setEndMktMode(m){_emMode=m;try{localStorage.setItem('endmkt_mode',m);}catch(e){}
+  var c=document.querySelector('.endmkt-card');if(c&&_endMktHoldings){c.outerHTML=endMktHTML();initEndMkt(_endMktHoldings);}}
 function _emEntries(){
   // Normalise stored entries (older {symbol,market} format -> splits)
   var m={};(appData.endMarkets||[]).forEach(function(e){
@@ -2164,10 +2191,15 @@ function _emAutoTag(items){
 }
 var _endMktHoldings=null;
 function endMktHTML(){
-  return '<div class="endmkt-card"><div class="endmkt-head"><span class="chart-title" style="margin:0">Exposure by End Market</span>'
-    +'<span class="endmkt-sub">% of stock market value (excl. cash) · hover a slice for companies · <a href="#" onclick="reautoEndMarkets();return false" style="color:var(--blue,#0071e3)">re-run auto-tag</a></span></div>'
+  var sec=_emMode==='sector';
+  var pill=function(m,l){var on=_emMode===m;return'<span onclick="setEndMktMode(\''+m+'\')" style="cursor:pointer;font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;'+(on?'background:var(--text);color:var(--card)':'color:var(--text2)')+'">'+l+'</span>';};
+  return '<div class="endmkt-card"><div class="endmkt-head"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="chart-title" style="margin:0">Exposure by '+(sec?'Sector':'End Market')+'</span>'
+    +'<span style="display:inline-flex;background:var(--surface2);border-radius:14px;padding:2px">'+pill('sector','Yahoo sector')+pill('endmkt','End market')+'</span></div>'
+    +'<span class="endmkt-sub">% of stock market value (excl. cash) · hover a slice for companies'+(sec?' · source: Yahoo Finance':' · <a href="#" onclick="reautoEndMarkets();return false" style="color:var(--blue,#0071e3)">re-run auto-tag</a>')+'</span></div>'
     +'<div class="endmkt-grid"><div><div class="endmkt-wrap"><canvas id="endMktCanvas"></canvas><div class="endmkt-tip" id="endMktTip"></div></div><div class="endmkt-legend" id="endMktLegend"></div></div>'
-    +'<div><div style="font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">End markets by stock <span style="font-weight:500;text-transform:none;letter-spacing:0">— edit as e.g. “Commercial Aerospace 60, Defense &amp; Government 40”; clear to re-auto</span></div><div class="endmkt-list" id="endMktList"></div><datalist id="endMktOpts"></datalist></div>'
+    +'<div><div style="font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'
+    +(sec?'Sector · industry by stock':'End markets by stock <span style="font-weight:500;text-transform:none;letter-spacing:0">— edit as e.g. “Commercial Aerospace 60, Defense &amp; Government 40”; clear to re-auto</span>')
+    +'</div><div class="endmkt-list" id="endMktList"></div><datalist id="endMktOpts"></datalist></div>'
     +'</div></div>';
 }
 function initEndMkt(holdings){
@@ -2175,14 +2207,16 @@ function initEndMkt(holdings){
   var canvas=document.getElementById('endMktCanvas');if(!canvas)return;
   var items=holdings.map(function(h){return{symbol:h.symbol,name:h.name||h.symbol,value:calcHolding(h).marketValue||0};})
     .filter(function(i){return i.value>0;}).sort(function(a,b){return b.value-a.value;});
-  var map=_emAutoTag(items);
+  var sec=_emMode==='sector',ys=null,map;
+  if(sec){ys=_ysMap();_ysFill(items);map={};items.forEach(function(i){var y=ys[i.symbol];if(y)map[i.symbol]={splits:[{m:y.sector,p:100}],sub:y.industry};});}
+  else map=_emAutoTag(items);
   var total=items.reduce(function(s,i){return s+i.value;},0);
   var groups={},order=[];
   items.forEach(function(i){
     var e=map[i.symbol];var sp=e?e.splits:[{m:'Unassigned',p:100}];
     sp.forEach(function(x){
       var g=x.m;if(!groups[g]){groups[g]={label:g,value:0,cos:[]};order.push(g);}
-      var v=i.value*x.p/100;groups[g].value+=v;groups[g].cos.push({symbol:i.symbol,name:i.name,value:v,share:x.p});
+      var v=i.value*x.p/100;groups[g].value+=v;groups[g].cos.push({symbol:i.symbol,name:i.name,value:v,share:x.p,sub:e&&e.sub});
     });
   });
   var segsData=order.map(function(k){return groups[k];}).sort(function(a,b){
@@ -2200,8 +2234,9 @@ function initEndMkt(holdings){
       var e=map[i.symbol];
       return'<div class="endmkt-row"><div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span class="sym">'+esc(i.symbol)+'</span><span class="nm">'+esc(i.name)+'</span></div>'
         +'<div class="pc">'+pct(i.value)+'%</div>'
-        +'<div style="display:flex;align-items:center;gap:4px;min-width:0"><input list="endMktOpts" placeholder="'+(_emYahooTried[i.symbol]&&!e?'Unassigned':'Looking up…')+'" value="'+esc(e?_emFmt(e.splits):'')+'" data-sym="'+esc(i.symbol)+'" title="'+esc(e?_emFmt(e.splits):'')+'">'
-        +(e&&e.src==='auto'?'<span class="endmkt-auto" title="Auto-tagged — edit to override">auto</span>':'')+'</div></div>';
+        +(sec?'<div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px" title="'+esc(e?e.splits[0].m+' \u00b7 '+e.sub:'')+'">'+(e?'<b style="font-weight:600">'+esc(e.splits[0].m)+'</b> <span style="color:var(--text2)">\u00b7 '+esc(e.sub||'')+'</span>':'<span style="color:var(--text2)">'+(_ysTried[i.symbol]?'Not found on Yahoo':'Looking up\u2026')+'</span>')+'</div></div>':'')
+        +(sec?'':'<div style="display:flex;align-items:center;gap:4px;min-width:0"><input list="endMktOpts" placeholder="'+(_emYahooTried[i.symbol]&&!e?'Unassigned':'Looking up…')+'" value="'+esc(e?_emFmt(e.splits):'')+'" data-sym="'+esc(i.symbol)+'" title="'+esc(e?_emFmt(e.splits):'')+'">'
+        +(e&&e.src==='auto'?'<span class="endmkt-auto" title="Auto-tagged — edit to override">auto</span>':'')+'</div></div>');
     }).join('')||'<div class="port-chart-msg" style="padding:20px">No holdings</div>';
     lst.querySelectorAll('input[data-sym]').forEach(function(inp){
       inp.addEventListener('change',function(){setEndMarket(inp.getAttribute('data-sym'),inp.value);});
@@ -2248,7 +2283,7 @@ function initEndMkt(holdings){
     if(h!==cur){cur=h;draw(h);
       if(h!=null&&tip){var g=segs[h].g;
         tip.innerHTML='<div class="endmkt-tip-h"><span>'+esc(g.label)+'</span><span>'+pct(g.value)+'%</span></div>'
-          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+(c.share<99.5?' <em style="opacity:.65;font-style:normal">('+Math.round(c.share)+'% of co.)</em>':'')+'</span><span>'+pct(c.value)+'%</span></div>';}).join('');
+          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+(c.sub?' <em style="opacity:.65;font-style:normal">— '+esc(c.sub)+'</em>':'')+(c.share<99.5?' <em style="opacity:.65;font-style:normal">('+Math.round(c.share)+'% of co.)</em>':'')+'</span><span>'+pct(c.value)+'%</span></div>';}).join('');
       }
     }
     if(h!=null&&tip){
