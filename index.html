@@ -2126,6 +2126,39 @@ function _ysFill(items){
     if(_endMktHoldings&&document.getElementById('endMktCanvas'))initEndMkt(_endMktHoldings);
   });
 }
+// ETF look-through: approx. Yahoo-sector weights (%) for common funds. Judgment/recall-based, not live — drifts a few pts over time.
+var ETF_SEC_NAMES={TE:'Technology',FS:'Financial Services',HC:'Healthcare',CC:'Consumer Cyclical',CM:'Communication Services',IN:'Industrials',
+  CD:'Consumer Defensive',EN:'Energy',UT:'Utilities',RE:'Real Estate',BM:'Basic Materials',FI:'Fixed Income',GO:'Gold & Commodities'};
+var _ETF_SP500='TE33 FS13 CC10.5 CM10 HC9.5 IN8 CD5.5 EN3 UT2.5 RE2 BM2',_ETF_US_TOTAL='TE31 FS13.5 CC10.5 CM9 HC10 IN9.5 CD5 EN3 UT2.5 RE3 BM2.5',
+  _ETF_NDX='TE52 CM16 CC13 CD5 HC5 IN4 UT1.5 BM1.2 EN0.5 FS0.5 RE0.3',_ETF_TSX='FS33 EN17 BM13 IN11 TE9 CD4 CC4 CM3 UT3.5 RE2 HC0.5',
+  _ETF_GLOBAL_CA='TE24 FS18 IN10 CC9 HC8 CM7 EN6 BM6 CD5 UT3 RE3',_ETF_WORLD='TE26 FS16 IN10.5 CC10.5 HC9.5 CM8 CD5.5 BM3.5 EN3.5 UT2.5 RE2.5',
+  _ETF_INTL='FS22 IN15 TE14 CC10 HC8 CD7 BM6.5 CM6 EN5 UT3 RE3',_ETF_EAFE='FS23 IN18 HC11 CC10 TE9 CD8 BM6 CM5 EN4 UT3 RE2.5',
+  _ETF_EM='TE24 FS23 CC13 CM9 IN7 BM6 CD5 EN4.5 HC4 UT3 RE2';
+var ETF_SECTORS={VOO:_ETF_SP500,SPY:_ETF_SP500,IVV:_ETF_SP500,SPLG:_ETF_SP500,VFV:_ETF_SP500,ZSP:_ETF_SP500,XUS:_ETF_SP500,XSP:_ETF_SP500,HXS:_ETF_SP500,
+  VTI:_ETF_US_TOTAL,ITOT:_ETF_US_TOTAL,SCHB:_ETF_US_TOTAL,XUU:_ETF_US_TOTAL,VUN:_ETF_US_TOTAL,
+  QQQ:_ETF_NDX,QQQM:_ETF_NDX,XQQ:_ETF_NDX,ZQQ:_ETF_NDX,ZNQ:_ETF_NDX,HXQ:_ETF_NDX,
+  XIU:_ETF_TSX,XIC:_ETF_TSX,ZCN:_ETF_TSX,VCN:_ETF_TSX,HXT:_ETF_TSX,ZIU:_ETF_TSX,
+  XEQT:_ETF_GLOBAL_CA,VEQT:_ETF_GLOBAL_CA,ZEQT:_ETF_GLOBAL_CA,HEQT:_ETF_GLOBAL_CA,
+  VGRO:'TE19 FS14.5 IN8 CC7 HC6.5 CM5.5 EN5 BM5 CD4 UT2.5 RE2.5 FI20',XGRO:'TE19 FS14.5 IN8 CC7 HC6.5 CM5.5 EN5 BM5 CD4 UT2.5 RE2.5 FI20',
+  VBAL:'TE14.5 FS11 IN6 CC5.5 HC5 CM4 EN3.5 BM3.5 CD3 UT2 RE2 FI40',XBAL:'TE14.5 FS11 IN6 CC5.5 HC5 CM4 EN3.5 BM3.5 CD3 UT2 RE2 FI40',
+  VT:_ETF_WORLD,ACWI:_ETF_WORLD,XAW:_ETF_WORLD,URTH:_ETF_WORLD,VXC:_ETF_WORLD,
+  VXUS:_ETF_INTL,IXUS:_ETF_INTL,VIU:_ETF_EAFE,XEF:_ETF_EAFE,VEA:_ETF_EAFE,IEFA:_ETF_EAFE,EFA:_ETF_EAFE,ZEA:_ETF_EAFE,
+  VWO:_ETF_EM,IEMG:_ETF_EM,EEM:_ETF_EM,XEC:_ETF_EM,VEE:_ETF_EM,ZEM:_ETF_EM,
+  DIA:'FS26 TE21 IN14 HC12 CC13 CD5 CM3 EN3 BM1',RSP:'IN15.5 FS14.5 TE14 HC11 CC10 CD7 UT6 RE6 BM5 EN4.5 CM4.5',
+  IWM:'FS17 IN17 HC16 TE14 CC10 RE6 EN5 BM4 CD3 UT3 CM2.5',VTV:'FS23 HC15 IN13 TE10 CD8 EN7 CC6 UT5 CM4 BM3 RE3',
+  VUG:'TE55 CC15 CM13 FS6 HC5 IN4 CD1 RE1',SCHD:'EN20 CD19 HC15 IN12 FS9 TE8 CC8 CM4 BM3 UT1',VYM:'FS21 IN13 HC12 TE11 CD11 EN9 UT7 CC6 CM4 BM3 RE1',
+  XLK:'TE100',SMH:'TE100',SOXX:'TE100',VGT:'TE100',XLF:'FS100',VFH:'FS100',XLE:'EN100',VDE:'EN100',XEG:'EN100',XLV:'HC100',VHT:'HC100',
+  XLI:'IN100',ITA:'IN100',XLY:'CC100',XLP:'CD100',XLU:'UT100',XLRE:'RE100',VNQ:'RE100',XRE:'RE100',ZRE:'RE100',XLB:'BM100',XLC:'CM100',
+  XFN:'FS100',ZEB:'FS100',XGD:'BM100',GDX:'BM100',XMA:'BM100',ZUT:'UT100',XUT:'UT100',
+  GLD:'GO100',IAU:'GO100',CGL:'GO100',SLV:'GO100',
+  BND:'FI100',AGG:'FI100',ZAG:'FI100',XBB:'FI100',VAB:'FI100',ZFL:'FI100',TLT:'FI100',ZST:'FI100',CASH:'FI100',PSA:'FI100',ZMMK:'FI100'};
+function _etfSplits(sym){
+  var s=String(sym||'').toUpperCase(),b=s.replace(/\.(TO|NE|NEO|V|CN)$/,'').replace(/-U$/,'').replace(/\.U$/,'');
+  if(b==='PSA'&&s===b)return null; // US PSA = Public Storage (stock), CA PSA.TO = cash ETF
+  var spec=ETF_SECTORS[s]||ETF_SECTORS[b];if(!spec)return null;
+  var out=[];spec.replace(/([A-Z]{2})(\d+(?:\.\d+)?)/g,function(_,c,p){if(ETF_SEC_NAMES[c])out.push({m:ETF_SEC_NAMES[c],p:+p});});
+  var t=out.reduce(function(a,x){return a+x.p;},0);out.forEach(function(x){x.p=x.p/t*100;});return out;
+}
 var _emMode=(function(){try{return localStorage.getItem('endmkt_mode')||'sector';}catch(e){return'sector';}})();
 function setEndMktMode(m){_emMode=m;try{localStorage.setItem('endmkt_mode',m);}catch(e){}
   var c=document.querySelector('.endmkt-card');if(c&&_endMktHoldings){c.outerHTML=endMktHTML();initEndMkt(_endMktHoldings);}}
@@ -2208,7 +2241,7 @@ function initEndMkt(holdings){
   var items=holdings.map(function(h){return{symbol:h.symbol,name:h.name||h.symbol,value:calcHolding(h).marketValue||0};})
     .filter(function(i){return i.value>0;}).sort(function(a,b){return b.value-a.value;});
   var sec=_emMode==='sector',ys=null,map;
-  if(sec){ys=_ysMap();_ysFill(items);map={};items.forEach(function(i){var y=ys[i.symbol];if(y)map[i.symbol]={splits:[{m:y.sector,p:100}],sub:y.industry};});}
+  if(sec){ys=_ysMap();_ysFill(items.filter(function(i){return!_etfSplits(i.symbol);}));map={};items.forEach(function(i){var es=_etfSplits(i.symbol);if(es){map[i.symbol]={splits:es,sub:'',etf:true};return;}var y=ys[i.symbol];if(y)map[i.symbol]={splits:[{m:y.sector,p:100}],sub:y.industry};});}
   else map=_emAutoTag(items);
   var total=items.reduce(function(s,i){return s+i.value;},0);
   var groups={},order=[];
@@ -2216,7 +2249,7 @@ function initEndMkt(holdings){
     var e=map[i.symbol];var sp=e?e.splits:[{m:'Unassigned',p:100}];
     sp.forEach(function(x){
       var g=x.m;if(!groups[g]){groups[g]={label:g,value:0,cos:[]};order.push(g);}
-      var v=i.value*x.p/100;groups[g].value+=v;groups[g].cos.push({symbol:i.symbol,name:i.name,value:v,share:x.p,sub:e&&e.sub});
+      var v=i.value*x.p/100;groups[g].value+=v;groups[g].cos.push({symbol:i.symbol,name:i.name,value:v,share:x.p,sub:e&&e.sub,etf:e&&e.etf});
     });
   });
   var segsData=order.map(function(k){return groups[k];}).sort(function(a,b){
@@ -2234,7 +2267,9 @@ function initEndMkt(holdings){
       var e=map[i.symbol];
       return'<div class="endmkt-row"><div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis"><span class="sym">'+esc(i.symbol)+'</span><span class="nm">'+esc(i.name)+'</span></div>'
         +'<div class="pc">'+pct(i.value)+'%</div>'
-        +(sec?'<div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px" title="'+esc(e?e.splits[0].m+' \u00b7 '+e.sub:'')+'">'+(e?'<b style="font-weight:600">'+esc(e.splits[0].m)+'</b> <span style="color:var(--text2)">\u00b7 '+esc(e.sub||'')+'</span>':'<span style="color:var(--text2)">'+(_ysTried[i.symbol]?'Not found on Yahoo':'Looking up\u2026')+'</span>')+'</div></div>':'')
+        +(sec&&e&&e.etf?(function(){var t=e.splits.slice().sort(function(a,b){return b.p-a.p;}).map(function(x){return x.m+' '+Math.round(x.p)+'%';}).join(' \u00b7 ');
+            return'<div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px" title="'+esc(t)+'"><b style="font-weight:600">Look-through</b> <span style="color:var(--text2)">\u00b7 '+esc(t)+'</span></div></div>';})()
+         :sec?'<div style="min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px" title="'+esc(e?e.splits[0].m+' \u00b7 '+e.sub:'')+'">'+(e?'<b style="font-weight:600">'+esc(e.splits[0].m)+'</b> <span style="color:var(--text2)">\u00b7 '+esc(e.sub||'')+'</span>':'<span style="color:var(--text2)">'+(_ysTried[i.symbol]?'Not found on Yahoo':'Looking up\u2026')+'</span>')+'</div></div>':'')
         +(sec?'':'<div style="display:flex;align-items:center;gap:4px;min-width:0"><input list="endMktOpts" placeholder="'+(_emYahooTried[i.symbol]&&!e?'Unassigned':'Looking up…')+'" value="'+esc(e?_emFmt(e.splits):'')+'" data-sym="'+esc(i.symbol)+'" title="'+esc(e?_emFmt(e.splits):'')+'">'
         +(e&&e.src==='auto'?'<span class="endmkt-auto" title="Auto-tagged — edit to override">auto</span>':'')+'</div></div>');
     }).join('')||'<div class="port-chart-msg" style="padding:20px">No holdings</div>';
@@ -2283,7 +2318,7 @@ function initEndMkt(holdings){
     if(h!==cur){cur=h;draw(h);
       if(h!=null&&tip){var g=segs[h].g;
         tip.innerHTML='<div class="endmkt-tip-h"><span>'+esc(g.label)+'</span><span>'+pct(g.value)+'%</span></div>'
-          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+(c.sub?' <em style="opacity:.65;font-style:normal">— '+esc(c.sub)+'</em>':'')+(c.share<99.5?' <em style="opacity:.65;font-style:normal">('+Math.round(c.share)+'% of co.)</em>':'')+'</span><span>'+pct(c.value)+'%</span></div>';}).join('');
+          +g.cos.map(function(c){return'<div class="endmkt-tip-r"><span>'+esc(c.symbol)+' · '+esc(c.name)+(c.sub?' <em style="opacity:.65;font-style:normal">— '+esc(c.sub)+'</em>':'')+(c.share<99.5?' <em style="opacity:.65;font-style:normal">('+Math.round(c.share)+'% of '+(c.etf?'fund':'co.')+')</em>':'')+'</span><span>'+pct(c.value)+'%</span></div>';}).join('');
       }
     }
     if(h!=null&&tip){
